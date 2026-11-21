@@ -1,0 +1,504 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Nexsus Pro AI</title>
+  <script src="https://puter.com"></script>
+  <link rel="stylesheet" href="https://cloudflare.com">
+  <script src="https://cloudflare.com"></script>
+  <style>
+    :root {
+      --bg: #212121;
+      --sidebar: #171717;
+      --surface: #2F2F2F;
+      --surface-hover: #3A3A3A;
+      --border: rgba(255, 255, 255, 0.09);
+      --text: #ECECEC;
+      --muted: #9B9B9B;
+      --white: #FFFFFF;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; -webkit-tap-highlight-color: transparent; }
+    body { background: var(--bg); color: var(--text); height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+
+    header {
+      height: 54px; padding: 0 14px; display: flex; align-items: center; justify-content: space-between;
+      border-bottom: 1px solid var(--border); background: var(--bg); z-index: 10;
+    }
+    .icon-btn {
+      background: transparent; border: none; color: var(--text); width: 38px; height: 38px;
+      border-radius: 10px; display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 18px;
+    }
+    .icon-btn:active { background: var(--surface); }
+    .model-trigger {
+      background: transparent; border: none; color: var(--text); font-size: 16px; font-weight: 600;
+      display: flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 12px; cursor: pointer;
+    }
+    .model-trigger:active { background: var(--surface); }
+    .model-trigger span.sub { color: var(--muted); font-weight: 400; font-size: 13px; }
+
+    .dropdown {
+      position: fixed; top: 58px; left: 50%; transform: translateX(-50%) scale(0.96);
+      width: 90%; max-width: 340px; background: #2A2A2A; border: 1px solid var(--border);
+      border-radius: 16px; padding: 6px; box-shadow: 0 16px 40px rgba(0,0,0,0.55);
+      opacity: 0; pointer-events: none; transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1); z-index: 50;
+    }
+    .dropdown.open { opacity: 1; pointer-events: auto; transform: translateX(-50%) scale(1); }
+    .model-item {
+      padding: 11px 12px; border-radius: 11px; display: flex; align-items: center; justify-content: space-between;
+      cursor: pointer; transition: background 0.15s;
+    }
+    .model-item:hover, .model-item.active { background: var(--surface-hover); }
+    .model-item .m-title { font-size: 14px; font-weight: 500; }
+    .model-item .m-desc { font-size: 11px; color: var(--muted); margin-top: 2px; }
+
+    .overlay {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.6); opacity: 0; pointer-events: none;
+      transition: opacity 0.22s; z-index: 40;
+    }
+    .overlay.open { opacity: 1; pointer-events: auto; }
+    .sidebar {
+      position: fixed; top: 0; left: 0; bottom: 0; width: 280px; background: var(--sidebar);
+      transform: translateX(-100%); transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+      z-index: 45; display: flex; flex-direction: column; padding: 14px; border-right: 1px solid var(--border);
+    }
+    .sidebar.open { transform: translateX(0); }
+    .new-chat-btn {
+      width: 100%; padding: 11px 14px; background: var(--surface); border: 1px solid var(--border);
+      color: var(--white); border-radius: 12px; font-size: 14px; font-weight: 500; text-align: left;
+      display: flex; align-items: center; justify-content: space-between; cursor: pointer; margin-bottom: 16px;
+    }
+    .side-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); margin: 10px 6px 6px; }
+    .sync-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-bottom: 14px; }
+    .sync-btn {
+      background: #222222; border: 1px solid var(--border); color: var(--text); padding: 9px 10px;
+      border-radius: 10px; font-size: 13px; text-align: left; cursor: pointer; display: flex; align-items: center; gap: 6px;
+    }
+    .sync-btn:active { background: var(--surface); }
+    .history-list { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 4px; }
+    .hist-item {
+      padding: 9px 10px; border-radius: 9px; font-size: 13px; color: var(--text);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer;
+    }
+    .hist-item:hover { background: #262626; }
+    #chat { flex: 1; overflow-y: auto; padding: 16px 14px 24px; display: flex; flex-direction: column; gap: 18px; }
+    .empty-state { margin: auto; text-align: center; max-width: 320px; padding: 20px; }
+    .empty-logo {
+      width: 48px; height: 48px; border-radius: 50%; background: var(--white); color: #171717;
+      display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 20px; margin: 0 auto 14px;
+    }
+    .empty-state h2 { font-size: 20px; font-weight: 600; margin-bottom: 8px; }
+    .empty-state p { font-size: 13px; color: var(--muted); line-height: 1.45; }
+
+    .msg-row { display: flex; flex-direction: column; max-width: 100%; }
+    .msg-user {
+      align-self: flex-end; background: var(--surface); color: var(--white);
+      padding: 11px 16px; border-radius: 20px; max-width: 84%; font-size: 15px; line-height: 1.45;
+      white-space: pre-wrap; word-wrap: break-word;
+    }
+    .msg-bot { align-self: flex-start; width: 100%; font-size: 15px; line-height: 1.58; color: var(--text); }
+    .bot-meta { font-size: 12px; color: var(--muted); margin-bottom: 6px; display: flex; align-items: center; gap: 6px; }
+    .bot-body { white-space: pre-wrap; word-wrap: break-word; }
+
+    .code-box { margin: 12px 0; background: #141414; border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
+    .code-head {
+      display: flex; justify-content: space-between; align-items: center; padding: 7px 12px;
+      background: #1C1C1C; font-size: 12px; color: var(--muted);
+    }
+    .code-actions button {
+      background: transparent; border: none; color: var(--text); font-size: 12px; margin-left: 10px; cursor: pointer;
+    }
+    pre { padding: 12px; overflow-x: auto; font-size: 13px; }
+
+    .active-plugins { display: flex; flex-wrap: wrap; gap: 6px; padding: 0 14px 8px; }
+    .plugin-tag {
+      background: #2C2C2C; border: 1px solid var(--border); color: var(--text);
+      font-size: 12px; padding: 4px 10px; border-radius: 99px; display: flex; align-items: center; gap: 6px;
+    }
+    .plugin-tag span { cursor: pointer; color: var(--muted); }
+
+    .plus-menu {
+      position: fixed; bottom: 76px; left: 14px; width: 250px; background: #2A2A2A;
+      border: 1px solid var(--border); border-radius: 16px; padding: 6px;
+      box-shadow: 0 12px 32px rgba(0,0,0,0.5); opacity: 0; pointer-events: none;
+      transform: translateY(8px); transition: all 0.16s ease; z-index: 45;
+    }
+    .plus-menu.open { opacity: 1; pointer-events: auto; transform: translateY(0); }
+    .plus-item {
+      padding: 10px 12px; border-radius: 10px; font-size: 13px; display: flex; align-items: center;
+      justify-content: space-between; cursor: pointer;
+    }
+    .plus-item:hover { background: var(--surface-hover); }
+
+    .input-wrap { padding: 6px 12px 12px; background: var(--bg); }
+    .capsule {
+      background: var(--surface); border-radius: 26px; padding: 6px 8px;
+      display: flex; align-items: flex-end; gap: 6px; border: 1px solid var(--border);
+    }
+    .cap-btn {
+      width: 36px; height: 36px; border-radius: 50%; border: none; background: transparent;
+      color: var(--text); font-size: 18px; display: flex; align-items: center; justify-content: center;
+      cursor: pointer; flex-shrink: 0;
+    }
+    .cap-btn:active { background: var(--surface-hover); }
+    .send-btn { background: var(--white); color: #171717; font-weight: 700; }
+    .send-btn:disabled { opacity: 0.35; }
+    textarea {
+      flex: 1; background: transparent; border: none; color: var(--white); font-size: 15px;
+      line-height: 1.4; max-height: 120px; min-height: 36px; padding: 7px 4px; resize: none; outline: none;
+    }
+    textarea::placeholder { color: var(--muted); }
+
+    .voice-modal {
+      position: fixed; inset: 0; background: #141414; z-index: 100; display: flex; flex-direction: column;
+      align-items: center; justify-content: space-between; padding: 44px 24px;
+      opacity: 0; pointer-events: none; transition: opacity 0.25s;
+    }
+    .voice-modal.open { opacity: 1; pointer-events: auto; }
+    .orb {
+      width: 140px; height: 140px; border-radius: 50%; background: var(--white);
+      box-shadow: 0 0 60px rgba(255,255,255,0.2); transition: transform 0.2s ease;
+    }
+    .orb.listening { animation: pulse 1.4s infinite ease-in-out; }
+    @keyframes pulse {
+      0%, 100% { transform: scale(1); box-shadow: 0 0 40px rgba(255,255,255,0.2); }
+      50% { transform: scale(1.14); box-shadow: 0 0 80px rgba(255,255,255,0.45); }
+    }
+    .voice-status { font-size: 16px; color: var(--muted); text-align: center; max-width: 300px; }
+    .voice-controls { display: flex; gap: 20px; }
+    .v-btn {
+      width: 56px; height: 56px; border-radius: 50%; border: 1px solid var(--border);
+      background: var(--surface); color: var(--white); font-size: 20px; cursor: pointer;
+    }
+    .v-btn.close { background: #E53935; border: none; }
+
+    .sandbox-modal { position: fixed; inset: 0; background: #000; z-index: 90; display: none; flex-direction: column; }
+    .sandbox-modal.open { display: flex; }
+    .sandbox-bar { height: 48px; background: #171717; padding: 0 14px; display: flex; align-items: center; justify-content: space-between; }
+    iframe { flex: 1; border: none; background: #fff; }
+  </style>
+</head>
+<body>
+  <header>
+    <button class="icon-btn" onclick="toggleSidebar()">☰</button>
+    <button class="model-trigger" onclick="toggleModelMenu()">
+      <span id="currentModelName">Nexsus Консилиум</span>
+      <span class="sub">▾</span>
+    </button>
+    <button class="icon-btn" onclick="newChat()" title="Новый чат">✎</button>
+  </header>
+
+  <div class="dropdown" id="modelDropdown">
+    <div class="model-item active" onclick="selectModel('council', 'Nexsus Консилиум', this)">
+      <div><div class="m-title">⚡ Nexsus Консилиум</div><div class="m-desc">Claude + GPT-4o + DeepSeek + Qwen -> Слияние</div></div>
+      <span>✓</span>
+    </div>
+    <div class="model-item" onclick="selectModel('claude-sonnet-4', 'Claude Sonnet 4', this)">
+      <div><div class="m-title">Claude Sonnet 4</div><div class="m-desc">Лучший для кода и сложных задач</div></div>
+    </div>
+    <div class="model-item" onclick="selectModel('gpt-4o', 'ChatGPT (GPT-4o)', this)">
+      <div><div class="m-title">ChatGPT (GPT-4o)</div><div class="m-desc">Универсальный помощник на каждый день</div></div>
+    </div>
+    <div class="model-item" onclick="selectModel('deepseek-reasoner', 'DeepSeek R1', this)">
+      <div><div class="m-title">DeepSeek R1</div><div class="m-desc">Глубокая логика, математика и учёба</div></div>
+    </div>
+    <div class="model-item" onclick="selectModel('qwen-max', 'Qwen Max', this)">
+      <div><div class="m-title">Qwen Max</div><div class="m-desc">Мощная генерация кода и скриптов</div></div>
+    </div>
+    <div class="model-item" onclick="selectModel('moonshot-v1-8k', 'Kimi AI', this)">
+      <div><div class="m-title">Kimi (Moonshot)</div><div class="m-desc">Анализ больших текстов и идей</div></div>
+    </div>
+  </div>
+
+  <div class="overlay" id="overlay" onclick="closeAllMenus()"></div>
+  <aside class="sidebar" id="sidebar">
+    <button class="new-chat-btn" onclick="newChat()"><span>+ Новый чат</span><span>✎</span></button>
+    <div class="side-label">Оригинальные аккаунты (Синхронизация)</div>
+    <div class="sync-grid">
+      <button class="sync-btn" onclick="openOfficial('https://google.com')">✦ Gemini</button>
+      <button class="sync-btn" onclick="openOfficial('https://chatgpt.com')">◎ ChatGPT</button>
+      <button class="sync-btn" onclick="openOfficial('https://claude.ai')">✳ Claude</button>
+      <button class="sync-btn" onclick="openOfficial('https://deepseek.com')">◈ DeepSeek</button>
+      <button class="sync-btn" onclick="openOfficial('https://qwen.ai')">❖ Qwen</button>
+      <button class="sync-btn" onclick="openOfficial('https://moonshot.cn')">◐ Kimi</button>
+    </div>
+    <div class="side-label">История чатов</div>
+    <div class="history-list" id="historyList"></div>
+  </aside>
+
+  <main id="chat">
+    <div class="empty-state" id="emptyState">
+      <div class="empty-logo">N</div>
+      <h2>Чем помочь сегодня?</h2>
+      <p>Выбери модель сверху, подключи плагины через «+» или открой официальные аккаунты в меню слева для полной синхронизации.</p>
+    </div>
+  </main>
+
+  <div class="active-plugins" id="activePlugins"></div>
+
+  <div class="plus-menu" id="plusMenu">
+    <div class="plus-item" onclick="togglePlugin('web')"><span>🌐 Веб-поиск и факты</span><span id="chk_web"></span></div>
+    <div class="plus-item" onclick="togglePlugin('study')"><span>📚 Помощь с домашкой</span><span id="chk_study"></span></div>
+    <div class="plus-item" onclick="togglePlugin('code')"><span>💻 Режим разработчика</span><span id="chk_code"></span></div>
+    <div class="plus-item" onclick="togglePlugin('auto')"><span>🔄 Авто-смена модели</span><span id="chk_auto">✓</span></div>
+  </div>
+
+  <div class="input-wrap">
+    <div class="capsule">
+      <button class="cap-btn" onclick="togglePlusMenu()">+</button>
+      <textarea id="prompt" rows="1" placeholder="Спросите что-нибудь..." oninput="autoResize(this)"></textarea>
+      <button class="cap-btn" onclick="startDictation()" title="Голосовой ввод">🎙</button>
+      <button class="cap-btn" onclick="openVoiceMode()" title="Голосовой помощник">🎧</button>
+      <button class="cap-btn send-btn" id="sendBtn" onclick="sendMessage()">↑</button>
+    </div>
+  </div>
+
+  <div class="voice-modal" id="voiceModal">
+    <div style="font-size:14px;color:var(--muted)">Nexsus Pro Voice</div>
+    <div class="orb" id="voiceOrb"></div>
+    <div class="voice-status" id="voiceStatus">Нажмите на микрофон и задайте вопрос...</div>
+    <div class="voice-controls">
+      <button class="v-btn" onclick="listenVoice()">🎙</button>
+      <button class="v-btn close" onclick="closeVoiceMode()">✕</button>
+    </div>
+  <script>
+    let currentModel = 'council';
+    let plugins = { web: false, study: false, code: false, auto: true };
+    let chats = JSON.parse(localStorage.getItem('nexsus_chats') || '[]');
+    let currentChatId = null;
+    const fallbackChain = ['claude-sonnet-4', 'gpt-4o', 'deepseek-chat', 'qwen-max', 'moonshot-v1-8k'];
+
+    function autoResize(el) {
+      el.style.height = 'auto';
+      el.style.height = Math.min(el.scrollHeight, 120) + 'px';
+    }
+
+    function toggleSidebar() {
+      document.getElementById('sidebar').classList.toggle('open');
+      document.getElementById('overlay').classList.toggle('open');
+      renderHistory();
+    }
+
+    function toggleModelMenu() {
+      document.getElementById('modelDropdown').classList.toggle('open');
+      document.getElementById('overlay').classList.toggle('open');
+    }
+
+    function togglePlusMenu() {
+      document.getElementById('plusMenu').classList.toggle('open');
+      document.getElementById('overlay').classList.toggle('open');
+    }
+
+    function closeAllMenus() {
+      document.getElementById('sidebar').classList.remove('open');
+      document.getElementById('modelDropdown').classList.remove('open');
+      document.getElementById('plusMenu').classList.remove('open');
+      document.getElementById('overlay').classList.remove('open');
+    }
+
+    function selectModel(id, label, el) {
+      currentModel = id;
+      document.getElementById('currentModelName').innerText = label;
+      document.querySelectorAll('.model-item').forEach(item => item.classList.remove('active'));
+      if (el) el.classList.add('active');
+      closeAllMenus();
+    }
+
+    function togglePlugin(key) {
+      plugins[key] = !plugins[key];
+      document.getElementById('chk_' + key).innerText = plugins[key] ? '✓' : '';
+      renderActivePlugins();
+    }
+
+    function renderActivePlugins() {
+      const names = { web: '🌐 Веб-поиск', study: '📚 Учёба', code: '💻 Код' };
+      const box = document.getElementById('activePlugins');
+      box.innerHTML = Object.keys(plugins).filter(k => plugins[k] && k !== 'auto').map(k =>
+        `<div class="plugin-tag">${names[k]} <span onclick="togglePlugin('${k}')">✕</span></div>`
+      ).join('');
+    }
+
+    function openOfficial(url) { window.location.href = url; }
+
+    function escapeHtml(s) {
+      return s.replace(/[&<>'"]/g, t => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[t]));
+    }
+
+    function formatMarkdown(text) {
+      return escapeHtml(text).replace(/```(\w*)\n([\s\(\S\)]*?)```/g, (_, lang, code) => {
+        const id = 'c_' + Math.random().toString(36).slice(2, 9);
+        const rawCode = code.replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&#39;/g, "'").replace(/&quot;/g, '"');
+        const isHtml = lang === 'html' || rawCode.includes('<!DOCTYPE html>') || rawCode.includes('<canvas');
+        return `<div class="code-box"><div class="code-head"><span>${lang || 'code'}</span><div class="code-actions">${isHtml ? `<button onclick="runSandbox('${id}')">▶ Запустить</button>` : ''}<button onclick="copyCode('${id}')">Копировать</button><button onclick="saveHtmlFile('${id}')">Скачать</button></div></div><pre><code id="${id}" class="language-${lang}">${code}</code></pre></div>`;
+      });
+    }
+
+    function copyCode(id) { navigator.clipboard.writeText(document.getElementById(id).innerText); }
+
+    function saveHtmlFile(id) {
+      const code = document.getElementById(id).innerText;
+      const b64 = btoa(unescape(encodeURIComponent(code)));
+      const a = document.createElement('a');
+      a.href = 'data:text/html;base64,' + b64;
+      a.download = 'nexsus_code.html';
+      a.click();
+    }
+
+    function runSandbox(id) {
+      document.getElementById('sandboxFrame').srcdoc = document.getElementById(id).innerText;
+      document.getElementById('sandboxModal').classList.add('open');
+    }
+
+    function closeSandbox() {
+      document.getElementById('sandboxModal').classList.remove('open');
+      document.getElementById('sandboxFrame').srcdoc = '';
+    }
+    function appendMessage(role, content, meta = '') {
+      const empty = document.getElementById('emptyState');
+      if (empty) empty.remove();
+      const chat = document.getElementById('chat');
+      const row = document.createElement('div');
+      row.className = 'msg-row';
+      if (role === 'user') {
+        row.innerHTML = `<div class="msg-user">${escapeHtml(content)}</div>`;
+      } else {
+        row.innerHTML = `<div class="msg-bot"><div class="bot-meta">${meta}</div><div class="bot-body">${formatMarkdown(content)}</div></div>`;
+        row.querySelectorAll('pre code').forEach(el => hljs.highlightElement(el));
+      }
+      chat.appendChild(row);
+      chat.scrollTop = chat.scrollHeight;
+      return row;
+    }
+
+    function buildPromptWithPlugins(userText) {
+      let prefix = '';
+      if (plugins.web) prefix += '[Режим веб-поиска: опирайся на самые свежие факты и даты.] ';
+      if (plugins.study) prefix += '[Режим репетитора: объясни задачу пошагово, понятно и с формулами.] ';
+      if (plugins.code) prefix += '[Режим Senior-разработчика: пиши чистый, готовый к запуску код без заглушек.] ';
+      return prefix + userText;
+    }
+
+    async function callSingleModel(model, promptText) {
+      const res = await puter.ai.chat(promptText, { model });
+      return typeof res === 'string' ? res : (res?.message?.content || JSON.stringify(res));
+    }
+
+    async function callWithFallback(preferredModel, promptText) {
+      const queue = plugins.auto ? [preferredModel, ...fallbackChain.filter(m => m !== preferredModel)] : [preferredModel];
+      for (const m of queue) {
+        try {
+          const reply = await callSingleModel(m, promptText);
+          return { text: reply, usedModel: m };
+        } catch (e) {}
+      }
+      throw new Error('Проверьте интернет или вход в Puter.');
+    }
+
+    async function sendMessage(voiceText = null) {
+      const input = document.getElementById('prompt');
+      const rawText = voiceText || input.value.trim();
+      if (!rawText) return;
+      if (!voiceText) { input.value = ''; input.style.height = '36px'; }
+      document.getElementById('sendBtn').disabled = true;
+
+      appendMessage('user', rawText);
+      const finalPrompt = buildPromptWithPlugins(rawText);
+      saveToHistory(rawText);
+
+      try {
+        if (currentModel === 'council') {
+          const loader = appendMessage('bot', 'Опрашиваю Claude Sonnet 4, GPT-4o, DeepSeek и Qwen...', '⚡ Nexsus Консилиум');
+          const results = await Promise.allSettled([
+            callSingleModel('claude-sonnet-4', finalPrompt),
+            callSingleModel('gpt-4o', finalPrompt),
+            callSingleModel('deepseek-chat', finalPrompt),
+            callSingleModel('qwen-max', finalPrompt)
+          ]);
+          const valid = results.filter(r => r.status === 'fulfilled').map(r => r.value);
+          if (valid.length === 0) throw new Error('Модели консилиума временно недоступны.');
+          loader.querySelector('.bot-body').innerText = `Получено ответов: ${valid.length}/4. Объединяю...`;
+          const mergeInstruction = `Объедини лучшие идеи и код из этих ответов разных ИИ на запрос "${rawText}" в один идеальный ответ:\n\n` + valid.map((v, i) => `--- Вариант ${i+1} ---\n${v}`).join('\n\n');
+          const merged = await callWithFallback('claude-sonnet-4', mergeInstruction);
+          loader.remove();
+          appendMessage('bot', merged.text, `⚡ Консилиум (${valid.length} ИИ)`);
+          if (voiceText) speakText(merged.text);
+        } else {
+          const loader = appendMessage('bot', 'Думаю...', currentModel);
+          const ans = await callWithFallback(currentModel, finalPrompt);
+          loader.remove();
+          appendMessage('bot', ans.text, ans.usedModel);
+          if (voiceText) speakText(ans.text);
+        }
+      } catch (err) {
+        appendMessage('bot', 'Ошибка: ' + err.message, 'Система');
+      } finally {
+        document.getElementById('sendBtn').disabled = false;
+      }
+    }
+
+    function saveToHistory(firstPrompt) {
+      if (!currentChatId) {
+        currentChatId = Date.now();
+        chats.unshift({ id: currentChatId, title: firstPrompt.slice(0, 40) });
+        localStorage.setItem('nexsus_chats', JSON.stringify(chats.slice(0, 25)));
+      }
+    }
+
+    function renderHistory() {
+      document.getElementById('historyList').innerHTML = chats.map(c => `<div class="hist-item">${escapeHtml(c.title)}</div>`).join('');
+    }
+
+    function newChat() {
+      currentChatId = null;
+      document.getElementById('chat').innerHTML = `<div class="empty-state" id="emptyState"><div class="empty-logo">N</div><h2>Новый чат</h2><p>Задайте любой вопрос, напишите код или включите консилиум моделей.</p></div>`;
+      closeAllMenus();
+    }
+
+    function startDictation() {
+      const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+      if (!SR) return alert('Голосовой ввод не поддерживается.');
+      const rec = new SR();
+      rec.lang = 'ru-RU';
+      rec.onresult = e => {
+        const input = document.getElementById('prompt');
+        input.value += (input.value ? ' ' : '') + e.results[0][0].transcript;
+        autoResize(input);
+      };
+      rec.start();
+    }
+
+    function openVoiceMode() { document.getElementById('voiceModal').classList.add('open'); listenVoice(); }
+    function closeVoiceMode() { window.speechSynthesis.cancel(); document.getElementById('voiceModal').classList.remove('open'); }
+
+    function listenVoice() {
+      const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+      if (!SR) return;
+      const orb = document.getElementById('voiceOrb');
+      const status = document.getElementById('voiceStatus');
+      const rec = new SR();
+      rec.lang = 'ru-RU';
+      orb.classList.add('listening');
+      status.innerText = 'Слушаю...';
+      rec.onresult = e => {
+        orb.classList.remove('listening');
+        const text = e.results[0][0].transcript;
+        status.innerText = '«' + text + '»';
+        sendMessage(text);
+      };
+      rec.onerror = () => { orb.classList.remove('listening'); status.innerText = 'Нажмите микрофон ещё раз.'; };
+      rec.start();
+    }
+
+    function speakText(text) {
+      if (!document.getElementById('voiceModal').classList.contains('open')) return;
+      window.speechSynthesis.cancel();
+      const clean = text.replace(/```[\s\(\S\)]*?```/g, 'Код готов на экране.').replace(/[#*`]/g, '');
+      const utter = new SpeechSynthesisUtterance(clean.slice(0, 500));
+      utter.lang = 'ru-RU';
+      document.getElementById('voiceStatus').innerText = 'Отвечаю...';
+      utter.onend = () => { document.getElementById('voiceStatus').innerText = 'Нажмите микрофон для продолжения'; };
+      window.speechSynthesis.speak(utter);
+    }
+  </script>
+</body>
+</html>
