@@ -20,7 +20,7 @@ jobs:
         with:
           gradle-version: '8.7'
       - name: Build Debug APK
-      run: gradle assembleDebug --info
+        run: gradle assembleDebug --info
       - name: Upload Nexsus Pro AI APK
         uses: actions/upload-artifact@v4
         with:
